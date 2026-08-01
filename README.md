@@ -127,7 +127,7 @@ provide clear value.
 Development follows the data flow, so each stage has real input to build against.
 
 - [x] README and architecture
-- [ ] Local corpus — interlinked HTML pages as a reproducible, offline dataset
+- [x] Local corpus — interlinked HTML pages as a reproducible, offline dataset
 - [ ] Parser — convert an HTML file into a structured document
 - [ ] Indexer — build the inverted index over the corpus
 - [ ] Query and retrieval — resolve query terms to matching documents
