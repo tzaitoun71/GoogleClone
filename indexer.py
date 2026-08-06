@@ -22,12 +22,22 @@ def build_index(corpus_dir: str = "corpus") -> dict:
     documents: dict[int, dict] = {}
     index: dict[str, dict[int, int]] = {}
 
+    # The crawler writes pages under slugified filenames and records the real
+    # URL each came from. Hand-written corpora have no manifest, and fall back
+    # to using the filename as the URL.
+    manifest_path = Path(corpus_dir) / "manifest.json"
+    manifest = (
+        json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest_path.exists()
+        else {}
+    )
+
     # sorted() so IDs are assigned deterministically - the same page always gets
     # the same ID across runs, which makes debugging and tests sane.
     files = sorted(Path(corpus_dir).glob("*.html"))
 
     for doc_id, path in enumerate(files):
-        doc = parse_file(path)
+        doc = parse_file(path, url=manifest.get(path.name))
 
         # Store everything we'll need later to describe this document.
         documents[doc_id] = {
@@ -65,7 +75,13 @@ def load_index(path: str = "index.json") -> dict:
 
 
 if __name__ == "__main__":
-    data = build_index("corpus")
+    import sys
+
+    # Pass a directory to index something other than the hand-written corpus,
+    # e.g. `uv run python indexer.py crawled`.
+    corpus_dir = sys.argv[1] if len(sys.argv) > 1 else "corpus"
+
+    data = build_index(corpus_dir)
     save_index(data)
 
     documents, index = data["documents"], data["index"]
