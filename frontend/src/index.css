@@ -1,0 +1,68 @@
+:root {
+  --bg: #ffffff;
+  --surface: #f6f7f9;
+  --text: #16181d;
+  --muted: #6b7280;
+  --border: #e6e8ec;
+
+  --accent: #ff0048;
+  --accent-soft: #ff86a8;
+  /* A very light tint of the brand colour, for fills that sit behind text.
+     Derived from --accent with color-mix so changing the brand colour in one
+     place changes every surface built from it. */
+  --accent-wash: color-mix(in srgb, var(--accent) 10%, transparent);
+
+  --shadow: 0 1px 2px rgba(16, 18, 24, 0.06), 0 8px 24px rgba(16, 18, 24, 0.08);
+
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  color-scheme: light dark;
+  font: 15px/1.55 var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0f12;
+    --surface: #17181d;
+    --text: #e8eaed;
+    --muted: #9aa1ac;
+    --border: #24262c;
+
+    /* Lifted off pure #ff0048 — the raw brand red vibrates against a dark
+       background and gets hard to read at small sizes. Same hue, more light. */
+    --accent: #ff3d70;
+    --accent-soft: #a33150;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* Every focusable thing gets the same ring, once, here — rather than each
+   component inventing its own. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

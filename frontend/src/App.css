@@ -1,0 +1,398 @@
+/* ---------------------------------------------------------------
+   Layout: two views of the same app.
+
+   home-view    search box centered in the viewport, corpus below.
+   results-view search box pinned to a sticky top bar, results below.
+
+   Google's original insight, kept here: the landing page has exactly one
+   thing to do, so it gets the whole screen. Once you've searched, the box
+   becomes navigation and shrinks out of the way.
+   --------------------------------------------------------------- */
+
+.app {
+  min-height: 100svh;
+}
+
+/* ---------- home ---------- */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 22vh 24px 0;
+}
+
+.logo {
+  font-size: 60px;
+  font-weight: 700;
+  letter-spacing: -2.5px;
+  color: var(--accent);
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.examples button {
+  padding: 7px 15px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.examples button:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  transform: translateY(-1px);
+}
+
+/* ---------- sticky results header ---------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+
+  /* Translucent + blurred rather than opaque, so results scrolling underneath
+     stay faintly visible. Falls back to the flat colour where unsupported. */
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(16px);
+}
+
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 14px 24px;
+}
+
+.logo.small {
+  font-size: 24px;
+  letter-spacing: -1px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Aligns the status line under the search box rather than under the logo. */
+.statusbar .count {
+  margin-left: 108px;
+}
+
+.tokens {
+  display: flex;
+  gap: 6px;
+}
+
+.token {
+  padding: 1px 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border-radius: 999px;
+}
+
+/* ---------- search box ---------- */
+
+.search-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 560px;
+  padding: 0 18px;
+  height: 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.search-form:hover {
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+
+/* :focus-within — the ring belongs to the whole pill, but focus lands on the
+   <input> inside it. */
+.search-form:focus-within {
+  background: var(--bg);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash), var(--shadow);
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.search-form:focus-within .icon {
+  stroke: var(--accent);
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  outline: none;
+}
+
+.search::placeholder {
+  color: var(--muted);
+}
+
+.hint {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.clear {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.clear:hover {
+  color: var(--accent);
+}
+
+/* ---------- results ---------- */
+
+.main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px 120px;
+}
+
+.results {
+  list-style: none;
+  margin: 0;
+  /* 108px lines results up with the search box above, not the logo — the same
+     left edge Google uses. */
+  padding: 28px 0 0 108px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  max-width: 700px;
+}
+
+.result {
+  animation: rise 0.25s ease both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.source {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.crumbs {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.crumbs .site {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.sep {
+  padding: 0 4px;
+}
+
+.score {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  cursor: help;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--accent);
+}
+
+.snippet {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+mark {
+  background: none;      /* Google bolds matches rather than highlighting them */
+  color: var(--text);
+  font-weight: 600;
+}
+
+.notice {
+  padding: 48px 0;
+  color: var(--muted);
+}
+
+/* ---------- corpus (home) ---------- */
+
+.corpus {
+  max-width: 480px;
+  margin: 72px auto 0;
+}
+
+.corpus-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.corpus-title span {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.corpus-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.corpus-list li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+}
+
+.corpus-list li:first-child {
+  border-top: none;
+}
+
+/* Authority as a bar behind each row, so the PageRank spread is visible at a
+   glance rather than as six similar-looking decimals. */
+.bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--w);
+  background: var(--accent-wash);
+}
+
+.corpus-url {
+  position: relative;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.corpus-meta {
+  position: relative;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- narrow screens ---------- */
+
+@media (max-width: 700px) {
+  .hero {
+    padding-top: 14vh;
+  }
+
+  .logo {
+    font-size: 44px;
+  }
+
+  .topbar-inner {
+    gap: 14px;
+    padding: 12px 16px;
+  }
+
+  /* The 108px result indent only makes sense when there's room for it. */
+  .results,
+  .statusbar .count {
+    padding-left: 0;
+    margin-left: 0;
+  }
+
+  .main {
+    padding-inline: 16px;
+  }
+}
