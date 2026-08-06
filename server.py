@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     STATE.clear()
 
 
-app = FastAPI(title="Toogle", lifespan=lifespan)
+app = FastAPI(title="Zoogle", lifespan=lifespan)
 
 # The Vite dev server runs on a different port (5173) than this API (8000), so
 # the browser treats it as a cross-origin request and blocks it by default.

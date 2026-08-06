@@ -1,4 +1,4 @@
-# Toogle
+# Zoogle
 
 A small, from-scratch search engine that implements the core stages of a modern web
 search pipeline: crawling, parsing, indexing, retrieval, and ranking. The goal is
@@ -99,7 +99,7 @@ A search for `cats` immediately resolves to `{1, 3}` without scanning the corpus
 ## Project structure
 
 ```text
-toogle/
+zoogle/
 ├── corpus/              # local sample pages used as the initial dataset
 ├── crawler.py           # fetch pages, follow links, save raw HTML
 ├── parser.py            # HTML -> {title, text, tokens, links}

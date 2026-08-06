@@ -204,7 +204,7 @@ export default function App() {
         <header className="topbar">
           <div className="topbar-inner">
             <button className="logo small" onClick={reset} type="button">
-              Toogle
+              Zoogle
             </button>
             {searchBox}
           </div>
@@ -228,7 +228,7 @@ export default function App() {
         </header>
       ) : (
         <header className="hero">
-          <h1 className="logo">Toogle</h1>
+          <h1 className="logo">Zoogle</h1>
           {searchBox}
           <div className="examples">
             {EXAMPLES.map((example) => (
