@@ -33,8 +33,14 @@
 .examples {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.examples-label {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .examples button {

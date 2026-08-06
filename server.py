@@ -22,6 +22,7 @@ from pagerank import compute_pagerank
 from query import process_query
 from ranking import average_length, search
 from snippets import highlight, make_snippet
+from suggest import suggest_queries
 
 # Populated at startup. Everything here is read-only once built, so requests can
 # share it freely without locking.
@@ -43,6 +44,11 @@ async def lifespan(app: FastAPI):
     # property of the corpus, so a request should never walk the doc store to
     # recompute it.
     STATE["avgdl"] = average_length(STATE["documents"])
+
+    # Example queries are read off the index, so they always describe whatever
+    # corpus is currently loaded — a hardcoded list goes stale the moment you
+    # re-crawl. Query-independent, so it belongs at startup too.
+    STATE["suggestions"] = suggest_queries(STATE["index"], STATE["documents"], limit=5)
 
     print(
         f"Ready: {len(STATE['documents'])} documents, "
@@ -125,6 +131,7 @@ def stats_endpoint():
     return {
         "documents": len(documents),
         "terms": len(STATE["index"]),
+        "suggestions": STATE["suggestions"],
         "pages": [
             {
                 "id": doc_id,

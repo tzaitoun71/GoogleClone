@@ -2,11 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { search, stats } from './api'
 import './App.css'
 
-// Queries worth trying on a corpus nobody has seen before. The landing page is
-// otherwise a dead end: an empty box over an index of six pages you can't guess
-// the contents of.
-const EXAMPLES = ['python web', 'database', 'javascript browser', 'data science']
-
 function SearchIcon() {
   return (
     <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -230,13 +225,24 @@ export default function App() {
         <header className="hero">
           <h1 className="logo">Zoogle</h1>
           {searchBox}
-          <div className="examples">
-            {EXAMPLES.map((example) => (
-              <button key={example} type="button" onClick={() => runSearch(example)}>
-                {example}
-              </button>
-            ))}
-          </div>
+          {/* Suggestions come from the index rather than a constant, so they
+              describe whatever corpus is loaded right now. Nothing renders
+              until stats arrive — better an empty gap for one frame than a
+              row of examples that belong to a corpus we replaced. */}
+          {corpus?.suggestions?.length > 0 && (
+            <div className="examples">
+              <span className="examples-label">Try</span>
+              {corpus.suggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => runSearch(suggestion)}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          )}
         </header>
       )}
 
