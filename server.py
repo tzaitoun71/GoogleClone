@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from indexer import load_index
 from pagerank import compute_pagerank
 from query import process_query
-from ranking import search
+from ranking import average_length, search
 from snippets import highlight, make_snippet
 
 # Populated at startup. Everything here is read-only once built, so requests can
@@ -39,9 +39,15 @@ async def lifespan(app: FastAPI):
     # computed here, not inside the request handler.
     STATE["authority"] = compute_pagerank(STATE["documents"])
 
+    # Same reasoning for BM25's yardstick: the average document length is a
+    # property of the corpus, so a request should never walk the doc store to
+    # recompute it.
+    STATE["avgdl"] = average_length(STATE["documents"])
+
     print(
         f"Ready: {len(STATE['documents'])} documents, "
-        f"{len(STATE['index'])} unique terms"
+        f"{len(STATE['index'])} unique terms, "
+        f"average length {STATE['avgdl']:.0f} tokens"
     )
     yield
     STATE.clear()
@@ -65,8 +71,13 @@ app.add_middleware(
 def search_endpoint(
     q: str = Query("", description="the user's raw query"),
     limit: int = Query(10, ge=1, le=50),
+    method: str = Query("bm25", pattern="^(bm25|tfidf)$"),
 ):
-    """Run the full online path and return ranked results with snippets."""
+    """Run the full online path and return ranked results with snippets.
+
+    `method` is exposed so the two scorers can be compared against the same
+    corpus from the browser: /api/search?q=einstein&method=tfidf
+    """
     documents, index = STATE["documents"], STATE["index"]
 
     tokens = process_query(q)
@@ -74,7 +85,15 @@ def search_endpoint(
         # Empty or punctuation-only query. Not an error — just nothing to do.
         return {"query": q, "tokens": [], "count": 0, "results": []}
 
-    ranked = search(q, index, documents, authority=STATE["authority"], limit=limit)
+    ranked = search(
+        q,
+        index,
+        documents,
+        authority=STATE["authority"],
+        limit=limit,
+        method=method,
+        avgdl=STATE["avgdl"],
+    )
 
     results = []
     for doc_id, score in ranked:
@@ -89,7 +108,13 @@ def search_endpoint(
             "snippet": highlight(snippet, tokens),
         })
 
-    return {"query": q, "tokens": tokens, "count": len(results), "results": results}
+    return {
+        "query": q,
+        "tokens": tokens,
+        "method": method,
+        "count": len(results),
+        "results": results,
+    }
 
 
 @app.get("/api/stats")

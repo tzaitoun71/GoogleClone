@@ -111,6 +111,21 @@ def slugify(url: str) -> str:
     return f"{safe[:-5]}-{digest}.html"
 
 
+def content_digest(text: str) -> str:
+    """Fingerprint a page by its visible text, ignoring whitespace differences.
+
+    This is the second half of de-duplication, and it catches what
+    normalize_url() structurally cannot. "/tag/love/" and "/tag/love/page/1/"
+    are genuinely different URLs — no amount of canonicalizing turns one into
+    the other. Only the content reveals they're the same page.
+
+    Exact hashing catches exact copies. Real crawlers go further with SimHash or
+    shingling to catch NEAR-duplicates (same article, different ad slot), which
+    is a much harder problem and not one we need here.
+    """
+    return hashlib.sha1(" ".join(text.split()).encode()).hexdigest()
+
+
 def fetch(url: str, session: requests.Session) -> str | None:
     """Download one page, returning its HTML or None if it isn't usable."""
     try:
@@ -188,6 +203,16 @@ def crawl(
 
     last_fetch: dict[str, float] = {}
 
+    # Fingerprints of everything already on disk, so a re-crawl doesn't re-add a
+    # page under a second URL just because the first copy came from an earlier
+    # run. Cheap to rebuild and it keeps the dedup honest across sessions.
+    content_seen: dict[str, str] = {}
+    for filename, saved_url in manifest.items():
+        path = output / filename
+        if path.exists():
+            saved = parse_html(path.read_text(encoding="utf-8"), saved_url)
+            content_seen[content_digest(saved["text"])] = saved_url
+
     # Counts THIS run only. Using len(manifest) would make max_pages a cap on
     # the whole corpus, so a second crawl into a directory of 25 pages would
     # fetch nothing at all.
@@ -215,14 +240,26 @@ def crawl(
         if html is None:
             continue
 
-        filename = slugify(url)
-        (output / filename).write_text(html, encoding="utf-8")
-        manifest[filename] = url
-        fetched += 1
+        doc = parse_html(html, url)
+        digest = content_digest(doc["text"])
 
-        # parse_html already normalizes and de-duplicates the links it finds, so
-        # what comes back is directly comparable to what's in `seen`.
-        for link in parse_html(html, url)["links"]:
+        # Same text under a different URL. We keep the first spelling we saw and
+        # drop this one — indexing both would put two identical rows in the
+        # results AND split the page's PageRank between its two names, so it
+        # ranks lower than a single copy would have.
+        if digest in content_seen:
+            print(f"    duplicate of {content_seen[digest]}")
+        else:
+            content_seen[digest] = url
+            filename = slugify(url)
+            (output / filename).write_text(html, encoding="utf-8")
+            manifest[filename] = url
+            fetched += 1
+
+        # Links are followed either way: a duplicate's links are worth queueing
+        # even when its text isn't worth storing, since the copy we kept may
+        # have come from an earlier run whose frontier is long gone.
+        for link in doc["links"]:
             if link in seen:
                 continue
             if not link.startswith(("http://", "https://")):
