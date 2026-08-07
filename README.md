@@ -9,6 +9,29 @@ The central principle: a search engine does not query the live web on each reque
 crawls and indexes content ahead of time, then answers every query with a fast lookup
 against that precomputed index.
 
+## Screenshots
+
+![Zoogle home view — search box, derived suggestions, and the indexed corpus ranked by PageRank authority](docs/images/home.png)
+
+The landing view, with 40 pages crawled from `quotes.toscrape.com`. The suggestion
+chips are read off the index rather than hardcoded, so they describe whatever corpus
+is loaded. Each row in the corpus list is shaded by its PageRank authority — the
+homepage leads at 0.2070, and `/login` sits second purely because every page links
+to it from the navigation.
+
+![Zoogle results for "abilities" — three ranked results with highlighted snippets and blended relevance scores](docs/images/results.png)
+
+Results for `abilities`, one of the suggestions from the landing page. The pink chip
+under the search box is the *normalized token* the engine actually searched for, which
+is not always what was typed. Bold text marks the matched terms, positioned by sliding
+a 30-token window over each document to find the passage that covers the query best.
+Scores on the right are BM25 relevance blended with PageRank authority.
+
+Every result here is titled "Quotes to Scrape" because that site uses one `<title>` for
+all 40 pages — a genuine artifact of real-world data, and a good illustration of why
+titles can't carry ranking on their own. The URLs, snippets, and scores still separate
+them cleanly.
+
 ## Features
 
 - **Crawler** — downloads pages, extracts links, and traverses the link graph while
