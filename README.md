@@ -1,54 +1,68 @@
 # Zoogle
 
-A small, from-scratch search engine that implements the core stages of a modern web
-search pipeline: crawling, parsing, indexing, retrieval, and ranking. The goal is
-educational — to build a working, end-to-end search engine simple enough to fully
-understand, while mirroring the real architecture Google uses.
+A search engine built from scratch to figure out how Google actually works.
 
-The central principle: a search engine does not query the live web on each request. It
-crawls and indexes content ahead of time, then answers every query with a fast lookup
-against that precomputed index.
+I wanted to understand the system design behind a search engine, so I built one
+instead of just reading about it. Every part is written by hand: the crawler, the
+parser, the index, the ranking, and the web UI. No search libraries.
+
+The interesting part turned out to be the order things break in. You build the simple
+version, run it on real data, watch it fail, and then the standard solution makes
+sense because you've seen the problem it fixes. That happened a few times here and I
+wrote it all down.
+
+The whole thing comes from one constraint: you can't search the web while someone is
+waiting. Reading the internet to answer one query would take hours. So the work has
+to happen before the query shows up, and pretty much every design decision follows
+from that.
+
+Two longer docs if you want the details:
+
+* [docs/CONCEPTS.md](docs/CONCEPTS.md) explains TF-IDF, BM25, and PageRank, why I
+  switched from one to another halfway through, and what Google does that this
+  doesn't.
+* [docs/CODE.md](docs/CODE.md) walks through every file line by line.
 
 ## Screenshots
 
-![Zoogle home view — search box, derived suggestions, and the indexed corpus ranked by PageRank authority](docs/images/home.png)
+![Zoogle home view with search box, suggestions, and the indexed pages ranked by authority](docs/images/home.png)
 
-The landing view, with 40 pages crawled from `quotes.toscrape.com`. The suggestion
-chips are read off the index rather than hardcoded, so they describe whatever corpus
-is loaded. Each row in the corpus list is shaded by its PageRank authority — the
-homepage leads at 0.2070, and `/login` sits second purely because every page links
-to it from the navigation.
+The home page, showing 40 pages crawled from quotes.toscrape.com. The suggestion chips
+are pulled from the index, not hardcoded, so they change when you index something else.
+The shading behind each row is that page's PageRank score. The homepage is highest at
+0.2070. The `/login` page is second, not because anyone thinks it's important, but
+because every page in the site navigation links to it.
 
-![Zoogle results for "abilities" — three ranked results with highlighted snippets and blended relevance scores](docs/images/results.png)
+![Zoogle search results for "abilities" with highlighted snippets and scores](docs/images/results.png)
 
-Results for `abilities`, one of the suggestions from the landing page. The pink chip
-under the search box is the *normalized token* the engine actually searched for, which
-is not always what was typed. Bold text marks the matched terms, positioned by sliding
-a 30-token window over each document to find the passage that covers the query best.
-Scores on the right are BM25 relevance blended with PageRank authority.
+Results for `abilities`, one of the suggestions from the home page. The pink chip under
+the search box shows the normalized token that actually got searched, which isn't
+always what you typed. The bold words are the matches, and the snippet around them is
+picked by sliding a 30 word window over the page to find the densest patch. Scores on
+the right combine BM25 relevance with PageRank.
 
-Every result here is titled "Quotes to Scrape" because that site uses one `<title>` for
-all 40 pages — a genuine artifact of real-world data, and a good illustration of why
-titles can't carry ranking on their own. The URLs, snippets, and scores still separate
-them cleanly.
+All three results say "Quotes to Scrape" because that site uses the same `<title>` on
+every page. That's real data being messy, and it's a decent example of why you can't
+rank on titles alone. The URLs, snippets, and scores still tell them apart fine.
 
-## Features
+## What it does
 
-- **Crawler** — downloads pages, extracts links, and traverses the link graph while
-  respecting `robots.txt`.
-- **Parser** — converts raw HTML into structured documents (title, text, tokens, links).
-- **Inverted index** — maps terms to the documents that contain them, with term
-  frequency and position data for ranking.
-- **Query processing** — normalizes and tokenizes queries to match the index.
-- **Retrieval** — resolves query terms against the index to produce candidate documents.
-- **Ranking** — orders results using TF-IDF relevance and PageRank authority.
-- **Web UI** — a search interface that returns ranked results with snippets.
+* **Crawler** that downloads pages, follows links, respects `robots.txt`, and skips
+  duplicates.
+* **Parser** that turns HTML into a title, clean text, tokens, and outbound links.
+* **Inverted index** mapping every word to the pages containing it, with counts.
+* **Query processing** that normalizes your search the same way documents were
+  normalized.
+* **Retrieval** that finds candidate pages with a dictionary lookup.
+* **Ranking** using BM25 for relevance and PageRank for authority, blended together.
+* **Snippets** that quote the part of the page your search terms actually appear in.
+* **Web UI** built with React, talking to a FastAPI backend.
 
-## Architecture
+## How it works
 
-The pipeline has two halves. Crawling, parsing, and indexing run **offline** and are
-repeated periodically. Query processing, retrieval, and ranking run **online**, on every
-request, and are optimized for latency.
+The pipeline splits into two halves that run at completely different times. Crawling,
+parsing, and indexing happen offline and get repeated now and then. Query processing,
+retrieval, and ranking happen online, on every request, and have to be fast.
 
 ```text
                       PAGES (web or local corpus)
@@ -78,7 +92,7 @@ request, and are optimized for latency.
    │                  Retrieval        (lookup in index)     │
    │                       │                                 │
    │                       ▼                                 │
-   │                  Ranking          (TF-IDF + PageRank)   │
+   │                  Ranking          (BM25 + PageRank)     │
    │                       │                                 │
    │                       ▼                                 │
    │               Results + Snippets                        │
@@ -88,22 +102,20 @@ request, and are optimized for latency.
                                   User
 ```
 
-### Pipeline stages
-
-| Stage | Responsibility |
+| Stage | What it does |
 | --- | --- |
 | Crawling | Download pages, follow links, respect `robots.txt`, avoid duplicates. |
-| Parsing | Strip HTML to structured data; normalize text (lowercase, tokenize). |
-| Indexing | Build an inverted index (term → documents) with frequency and position. |
-| Query processing | Apply the same normalization to the query as to documents. |
-| Retrieval | Look up query terms in the index to gather candidate documents. |
-| Ranking | Score candidates with TF-IDF and PageRank; return the best first. |
-| Serving | Run retrieval and ranking, generate snippets, return the results page. |
+| Parsing | Strip HTML down to structured data and normalize the text. |
+| Indexing | Build the inverted index with term counts. |
+| Query processing | Normalize the query exactly like the documents were normalized. |
+| Retrieval | Look up query terms to gather candidate pages. |
+| Ranking | Score candidates with BM25 and PageRank, best first. |
+| Serving | Run the online path, build snippets, return JSON. |
 
 ### The inverted index
 
-The inverted index is the core data structure. Rather than scanning every document per
-query, terms are mapped to the documents that contain them:
+This is the data structure everything else is built around. Instead of storing pages
+and their words, you store words and their pages:
 
 ```text
 Documents:
@@ -117,51 +129,207 @@ Inverted index:
   friendly → {1, 2}
 ```
 
-A search for `cats` immediately resolves to `{1, 3}` without scanning the corpus.
+Searching for `cats` gives you `{1, 3}` immediately, without looking at a single
+document.
+
+## Design decisions
+
+This is the part I actually cared about. Each one is a place where you have to pick
+something, and knowing why makes the whole architecture click.
+
+### Do the expensive work before anyone searches
+
+A query needs to be answered in milliseconds, but understanding a corpus takes minutes.
+So everything slow happens up front. Crawling, parsing, indexing, and PageRank all run
+before a user shows up. A request just tokenizes a few words, reads a few dictionary
+keys, and scores a small number of candidates.
+
+That's why `server.py` computes PageRank and average document length at startup instead
+of per request. Search isn't fast because the work is fast. It's fast because the work
+already happened.
+
+### Flip the data structure around
+
+The obvious way to store things is page to words. But queries arrive as words, so you
+want words to pages. Flipping it turns a search into a dictionary lookup instead of a
+scan. The index ends up bigger than the pages it describes, which is a trade you make
+on purpose.
+
+### Use one function for documents and queries
+
+If a page says `"Python!"` and you search for `python`, those only match if both sides
+were processed identically. `query.py` is three lines that just call the parser's
+`tokenize`, and that's the whole reason it exists. If the two ever drift apart,
+searches quietly return nothing and there's no error telling you why.
+
+### Keep retrieval cheap and ranking expensive
+
+Good scoring is too slow to run on an entire corpus. So retrieval does the cheap part
+first, using dictionary lookups to answer "which pages could possibly match". Ranking
+then only scores those. On a real index this is the difference between looking at
+billions of pages and looking at a few thousand.
+
+### Score by rarity, not just how often a word shows up
+
+A page with "the" 50 times isn't about "the". So each word gets weighted by how much it
+narrows things down, which is what IDF does. A word appearing in every document counts
+for nothing. I never wrote a stopword list. The math figures out which words are noise.
+
+### Switch from TF-IDF to BM25 (after real data proved it was needed)
+
+TF-IDF divides by the full length of a document, which assumes a page twice as long
+needs twice the mentions to be equally relevant. That isn't how writing works.
+
+I found out the hard way. On a 40 page crawl I searched for `einstein` and got three
+tiny tag pages at the top. The actual Albert Einstein page came fourth. It mentioned
+Einstein 12 times in 650 words, but a 53 word tag page mentioning him once beat it.
+
+BM25 fixes this two ways. Term counts saturate, so the 20th mention adds almost nothing
+over the 19th. And length normalization is partial and measured against the corpus
+average instead of being absolute. The Einstein page went from 4th to 1st.
+
+The frustrating part is that the bug was invisible before. My original test corpus was
+six hand written pages, all between 77 and 108 words, so there was no length variation
+for the flaw to show up in. A test corpus that's too tidy will hide your problems. Both
+scorers are still in `ranking.py` so you can run them side by side.
+
+### Add a signal that has nothing to do with the text
+
+Reading the words on a page can't tell you if it's well researched or just uses the
+right vocabulary. PageRank solves this by ignoring the text completely and looking only
+at links. A page is important if important pages link to it. That was Google's original
+insight and the reason it beat the keyword matchers of the 90s.
+
+The clever bit is that a page's score gets divided among its links, not copied to each
+one. Linking to 100 pages gives each of them a hundredth of your authority. You can't
+create authority by linking to everything, you just water down what you have.
+
+### Don't let one signal drown out the other
+
+BM25 scores land around 0.5 to 2.0 and PageRank around 0.02 to 0.22, so adding them
+directly lets the bigger numbers win by accident. Both get normalized to a 0 to 1 range
+first, then averaged with relevance weighted higher (`AUTHORITY_WEIGHT = 0.2`).
+
+Authority has no idea what you searched for, so it should only break ties between pages
+that are already relevant. It's easy to get wrong. The crawl showed the homepage
+picking up 8 times the average authority just for being the page everything links back
+to, and at a weight of 0.2 that's enough for it to beat the actual Einstein page on a
+search for `einstein`.
+
+### Catch duplicates two different ways
+
+The same page shows up under multiple names, and there are two separate problems here.
+
+The first is URLs that are spelled differently but obviously identical.
+`normalize_url()` strips fragments, lowercases the host, drops default ports, and
+removes tracking parameters, so `https://x.com/a#top` and `HTTP://X.com:80/a` become
+the same thing.
+
+The second is harder. `/tag/love/` and `/tag/love/page/1/` are genuinely different URLs
+serving identical content. No amount of URL cleanup will merge them, because only the
+content shows they're the same. So the crawler also hashes the visible text and skips
+anything it's already saved.
+
+Leaving duplicates in costs you twice. They waste result slots, and they split a page's
+PageRank across its two names so it ranks lower than one copy would have.
+
+### Be polite when crawling
+
+A crawler is a loop with no pause in it, pointed at someone else's server. So it honors
+`robots.txt`, waits a second between requests to the same host, identifies itself
+properly in the User-Agent, and caps how much it will fetch. None of that is enforced by
+anything. Following it is just what makes crawling okay instead of rude.
+
+For the things Google does that this doesn't (learned ranking, semantic matching,
+sharding, personalization, spam fighting), see
+[docs/CONCEPTS.md](docs/CONCEPTS.md#13-what-google-does-that-we-dont).
+
+## Running it
+
+```bash
+# build an index from the six hand written pages
+uv run python indexer.py
+
+# or crawl a real site and index that instead
+uv run python crawler.py https://quotes.toscrape.com --max-pages 40 --fresh
+uv run python indexer.py crawled
+
+# start the API on port 8000
+uv run python server.py
+
+# start the UI on port 5173, in another terminal
+npm run dev --prefix frontend
+```
+
+Every module also runs on its own and prints what its stage does:
+
+```bash
+uv run python parser.py                 # parse one page
+uv run python indexer.py                # build the index, show postings
+uv run python retrieval.py              # candidates for a query
+uv run python ranking.py einstein love  # TF-IDF vs BM25, side by side
+uv run python pagerank.py               # link graph and authority scores
+uv run python snippets.py               # snippets and highlighting
+uv run python suggest.py                # suggested queries from the index
+```
+
+`ranking.py` takes queries as arguments, which is the quickest way to watch the two
+scorers disagree.
 
 ## Project structure
 
 ```text
 zoogle/
-├── corpus/              # local sample pages used as the initial dataset
-├── crawler.py           # fetch pages, follow links, save raw HTML
-├── parser.py            # HTML -> {title, text, tokens, links}
-├── indexer.py           # build and persist the inverted index
-├── index_store.py       # load/save the index
-├── query.py             # normalize and tokenize a query
-├── retrieval.py         # index lookup -> candidate documents
-├── ranking.py           # TF-IDF + PageRank -> ordered results
-├── pagerank.py          # PageRank over the link graph
-├── server.py            # web UI
-└── tests/               # unit tests per stage
+├── corpus/          six hand written pages, the starting dataset
+├── crawled/         pages fetched by the crawler (gitignored)
+├── docs/            CODE.md, CONCEPTS.md, screenshots
+├── frontend/        React + Vite UI
+├── crawler.py       fetch pages, follow links, save HTML
+├── parser.py        HTML into title, text, tokens, links
+├── indexer.py       build, save, and load the inverted index
+├── query.py         normalize a query
+├── retrieval.py     index lookup into candidate pages
+├── ranking.py       BM25 and TF-IDF, blended with PageRank
+├── pagerank.py      authority from the link graph
+├── snippets.py      pick and highlight the excerpt
+├── suggest.py       example queries pulled from the index
+└── server.py        FastAPI JSON API
 ```
 
 ## Tech stack
 
-- **Language:** Python 3
-- **Crawling / parsing:** `requests`, `beautifulsoup4`
-- **Web UI:** a lightweight web framework (Flask or FastAPI)
+* Python 3.12
+* `beautifulsoup4` for HTML parsing, `requests` for crawling
+* FastAPI and uvicorn for the API
+* React and Vite for the frontend
+* `uv` for Python dependencies
 
-The implementation favors the standard library and adds dependencies only where they
-provide clear value.
+Everything else is standard library. Dependencies only got added where they clearly
+earned their place.
 
 ## Roadmap
 
-Development follows the data flow, so each stage has real input to build against.
+Built in data flow order, so every stage had real input to work against.
 
-- [x] README and architecture
-- [x] Local corpus — interlinked HTML pages as a reproducible, offline dataset
-- [ ] Parser — convert an HTML file into a structured document
-- [ ] Indexer — build the inverted index over the corpus
-- [ ] Query and retrieval — resolve query terms to matching documents
-- [ ] Ranking — order results with TF-IDF
-- [ ] PageRank — add an authority signal from the link graph
-- [ ] Web UI — search box and results page
-- [ ] Crawler — fetch live URLs while respecting `robots.txt`
+* [x] README and architecture
+* [x] Local corpus of interlinked HTML pages
+* [x] Parser
+* [x] Indexer
+* [x] Query and retrieval
+* [x] Ranking with TF-IDF
+* [x] PageRank
+* [x] Snippets
+* [x] Web UI
+* [x] Crawler with `robots.txt` support
+* [x] BM25 replacing TF-IDF
+* [x] Query suggestions from the index
+* [ ] Tests
+* [ ] Clickable result links
+* [ ] Pagination
 
-## Core concept
+## The core idea
 
-The essence of the engine in a few lines:
+The whole engine in a few lines:
 
 ```python
 documents = {
@@ -180,6 +348,5 @@ for doc_id in index.get(query, set()):
     print(documents[doc_id])
 ```
 
-Crawling, TF-IDF, PageRank, snippets, and the web UI are all infrastructure built
-around this single idea: precompute the mapping from terms to documents, then answer
-queries by reading that mapping.
+Crawling, BM25, PageRank, snippets, and the UI are all scaffolding around that one
+idea. Precompute the map from words to pages, then answer every query by reading it.
