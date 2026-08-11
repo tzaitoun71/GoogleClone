@@ -28,7 +28,17 @@ function Snippet({ segments }) {
   )
 }
 
+// Only pages that came from the crawler have a real, followable URL. Documents
+// indexed from corpus/ are stored under a bare filename ("python.html"), which
+// the browser would resolve against the dev server and 404 on — so those stay
+// plain text rather than becoming links that go nowhere.
+function followable(url) {
+  return /^https?:\/\//i.test(url) ? url : null
+}
+
 function Result({ result }) {
+  const href = followable(result.url)
+
   return (
     <li className="result">
       {/* Source line above the title, the way Google has laid results out
@@ -47,7 +57,18 @@ function Result({ result }) {
           {result.score.toFixed(3)}
         </span>
       </div>
-      <h2 className="title">{result.title}</h2>
+      <h2 className="title">
+        {href ? (
+          // New tab, so a click doesn't throw away the results you just ran.
+          // rel="noreferrer" also covers noopener in every browser that
+          // matters, but both are spelled out because the pages are external.
+          <a href={href} target="_blank" rel="noopener noreferrer">
+            {result.title}
+          </a>
+        ) : (
+          result.title
+        )}
+      </h2>
       <Snippet segments={result.snippet} />
     </li>
   )

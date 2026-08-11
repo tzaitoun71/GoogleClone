@@ -323,8 +323,8 @@ Built in data flow order, so every stage had real input to work against.
 * [x] Crawler with `robots.txt` support
 * [x] BM25 replacing TF-IDF
 * [x] Query suggestions from the index
-* [ ] Tests
-* [ ] Clickable result links
+* [x] Tests
+* [x] Clickable result links
 * [ ] Pagination
 
 ## The core idea
