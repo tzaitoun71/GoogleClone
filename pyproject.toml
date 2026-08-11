@@ -10,3 +10,15 @@ dependencies = [
     "requests>=2.34.2",
     "uvicorn[standard]>=0.52.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+# The modules live at the repo root and import each other by bare name
+# ("from parser import tokenize"), so the root has to be importable from
+# inside tests/.
+pythonpath = ["."]
+testpaths = ["tests"]
