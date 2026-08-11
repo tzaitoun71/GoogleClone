@@ -1,0 +1,46 @@
+{
+  "_readme": [
+    "Relevance judgments: for each query, the page(s) a good search engine should",
+    "return. These are human decisions, not measurements — they are the opinion",
+    "the metrics are scored against, so they are worth arguing with and editing.",
+    "",
+    "The corpus (quotes.toscrape.com) has a natural ground truth, which is why it",
+    "can be judged honestly rather than by taste:",
+    "",
+    "  an author's name  -> that author's page, which carries their biography",
+    "  a tag's name      -> the page collecting the quotes under that tag",
+    "",
+    "Targets are URLs, not doc IDs, because IDs are assigned by sorted filename",
+    "and shift whenever the corpus changes. A URL means the same thing after a",
+    "re-crawl; doc 12 does not.",
+    "",
+    "A query may list several acceptable targets. 'edison' is genuinely ambiguous",
+    "between the man and the tag, so both count as correct."
+  ],
+
+  "queries": {
+    "einstein": ["https://quotes.toscrape.com/author/Albert-Einstein"],
+    "rowling": ["https://quotes.toscrape.com/author/J-K-Rowling"],
+    "jane austen": ["https://quotes.toscrape.com/author/Jane-Austen"],
+    "marilyn monroe": ["https://quotes.toscrape.com/author/Marilyn-Monroe"],
+    "thomas edison": ["https://quotes.toscrape.com/author/Thomas-A-Edison"],
+    "andre gide": ["https://quotes.toscrape.com/author/Andre-Gide"],
+    "eleanor roosevelt": ["https://quotes.toscrape.com/author/Eleanor-Roosevelt"],
+    "steve martin": ["https://quotes.toscrape.com/author/Steve-Martin"],
+
+    "edison": [
+      "https://quotes.toscrape.com/author/Thomas-A-Edison",
+      "https://quotes.toscrape.com/tag/edison/page/1/"
+    ],
+
+    "humor": ["https://quotes.toscrape.com/tag/humor/page/1/"],
+    "friendship": ["https://quotes.toscrape.com/tag/friendship/"],
+    "books": ["https://quotes.toscrape.com/tag/books/page/1/"],
+    "reading": ["https://quotes.toscrape.com/tag/reading/"],
+    "inspirational": ["https://quotes.toscrape.com/tag/inspirational/page/1/"],
+    "simile": ["https://quotes.toscrape.com/tag/simile/page/1/"],
+    "aliteracy": ["https://quotes.toscrape.com/tag/aliteracy/page/1/"],
+    "classic": ["https://quotes.toscrape.com/tag/classic/page/1/"],
+    "love": ["https://quotes.toscrape.com/tag/love/page/1/"]
+  }
+}
