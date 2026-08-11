@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zoogle — How Your Search Engine Works</title>
+<style>
+:root{
+  --ground:#E7E9E4;
+  --surface:#F4F6F1;
+  --sunk:#DCDFD7;
+  --ink:#191F1B;
+  --ink-2:#4C554E;
+  --ink-3:#78827A;
+  --line:#C6CBC2;
+  --line-2:#B3B9AE;
+  --relevance:#A85D14;
+  --relevance-soft:#E8C79C;
+  --authority:#2A6B6A;
+  --authority-soft:#A8CBC8;
+  --warn:#8C3A1E;
+  --shadow:rgba(25,31,27,.08);
+  --chip-sel-bg:#191F1B;
+  --chip-sel-fg:#F4F6F1;
+  --chip-sel-meta:#9BA79D;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#121613;
+    --surface:#1B211D;
+    --sunk:#0D110F;
+    --ink:#E3E8E1;
+    --ink-2:#A0ABA2;
+    --ink-3:#748077;
+    --line:#2F3833;
+    --line-2:#424D46;
+    --relevance:#E2953F;
+    --relevance-soft:#5C3F1C;
+    --authority:#5CB3AE;
+    --authority-soft:#1E4644;
+    --warn:#E0855F;
+    --shadow:rgba(0,0,0,.4);
+    --chip-sel-bg:#E3E8E1;
+    --chip-sel-fg:#121613;
+    --chip-sel-meta:#55605A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#121613;
+  --surface:#1B211D;
+  --sunk:#0D110F;
+  --ink:#E3E8E1;
+  --ink-2:#A0ABA2;
+  --ink-3:#748077;
+  --line:#2F3833;
+  --line-2:#424D46;
+  --relevance:#E2953F;
+  --relevance-soft:#5C3F1C;
+  --authority:#5CB3AE;
+  --authority-soft:#1E4644;
+  --warn:#E0855F;
+  --shadow:rgba(0,0,0,.4);
+  --chip-sel-bg:#E3E8E1;
+  --chip-sel-fg:#121613;
+  --chip-sel-meta:#55605A;
+}
+
+*{box-sizing:border-box}
+/* Minimal reset. The artifact host supplies one; this keeps the page
+   identical when opened straight off disk, where nothing does. */
+h1,h2,h3,h4,p{margin:0}
+
+body{
+  background:var(--ground);
+  color:var(--ink);
+  font-family:ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
+  line-height:1.5;
+  margin:0;
+  padding:0 20px 100px;
+  -webkit-font-smoothing:antialiased;
+}
+
+.wrap{max-width:1000px;margin:0 auto}
+
+/* ---------- type roles ---------- */
+.prose{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-size:17px;line-height:1.62;color:var(--ink-2);max-width:64ch}
+.prose strong{color:var(--ink);font-weight:600}
+.mono{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+
+/* ---------- header ---------- */
+header{padding:64px 0 40px;border-bottom:1px solid var(--line)}
+h1{
+  font-size:clamp(38px,6.5vw,62px);
+  line-height:1.02;
+  letter-spacing:-.035em;
+  font-weight:680;
+  margin:14px 0 0;
+  text-wrap:balance;
+}
+h1 .dim{color:var(--ink-3)}
+.lede{margin-top:18px}
+
+.stats{display:flex;flex-wrap:wrap;gap:0;margin-top:34px;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:var(--surface)}
+.stat{flex:1 1 130px;padding:13px 16px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:none}
+.stat b{display:block;font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;font-size:21px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat span{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);margin-top:3px}
+
+/* ---------- sections ---------- */
+section{padding-top:56px}
+h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:660;margin:0 0 6px;color:var(--ink)}
+.sec-note{font-size:14px;color:var(--ink-3);margin:0 0 26px;max-width:60ch}
+
+/* ---------- pipeline rail ---------- */
+.rail{display:flex;gap:26px;align-items:stretch;overflow-x:auto;padding-bottom:10px}
+.band{flex:0 0 auto;min-width:0}
+.band-hd{display:flex;align-items:baseline;gap:9px;margin-bottom:9px;white-space:nowrap}
+.band-hd .cost{font-size:11px;color:var(--ink-3);font-family:ui-monospace,Menlo,monospace}
+.chips{display:flex;gap:7px}
+.chip{
+  appearance:none;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:3px;
+  padding:10px 12px 11px;
+  text-align:left;
+  cursor:pointer;
+  font:inherit;
+  color:var(--ink-2);
+  min-width:104px;
+  transition:border-color .15s,color .15s,background .15s,transform .15s;
+}
+.chip:hover{border-color:var(--line-2);color:var(--ink);transform:translateY(-1px)}
+.chip .n{display:block;font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--ink-3);letter-spacing:.06em}
+.chip .nm{display:block;font-size:14px;font-weight:600;color:var(--ink);margin-top:5px;letter-spacing:-.01em}
+.chip .fl{display:block;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--ink-3);margin-top:3px}
+.chip[aria-selected="true"]{background:var(--chip-sel-bg);border-color:var(--chip-sel-bg)}
+.chip[aria-selected="true"] .nm{color:var(--chip-sel-fg)}
+.chip[aria-selected="true"] .n,.chip[aria-selected="true"] .fl{color:var(--chip-sel-meta)}
+.chip:focus-visible{outline:2px solid var(--relevance);outline-offset:2px}
+
+.hinge{flex:0 0 auto;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding-bottom:22px;gap:6px}
+.hinge .bar{width:1px;height:34px;background:var(--line-2)}
+.hinge .lbl{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--ink-3);writing-mode:horizontal-tb;white-space:nowrap;border:1px solid var(--line);border-radius:3px;padding:4px 7px;background:var(--sunk)}
+
+/* ---------- stage detail ---------- */
+.detail{margin-top:24px;border:1px solid var(--line);border-radius:4px;background:var(--surface);box-shadow:0 1px 2px var(--shadow)}
+.detail-hd{padding:22px 24px 18px;border-bottom:1px solid var(--line)}
+.detail-hd h3{margin:0;font-size:26px;letter-spacing:-.025em;font-weight:660}
+.detail-hd .file{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--relevance);margin-top:5px}
+.detail-hd .one{margin:13px 0 0;font-size:17px;font-family:"Iowan Old Style",Palatino,Georgia,serif;color:var(--ink);max-width:62ch;line-height:1.5}
+.detail-bd{padding:20px 24px 24px;display:grid;gap:22px}
+
+.io{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;background:var(--sunk);border:1px solid var(--line);border-radius:3px;padding:14px 16px}
+.io .box .k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin-bottom:5px}
+.io .box .v{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--ink);line-height:1.5;word-break:break-word}
+.io .arrow{color:var(--ink-3);font-size:17px}
+
+.why{font-family:"Iowan Old Style",Palatino,Georgia,serif;font-size:16.5px;line-height:1.62;color:var(--ink-2);max-width:64ch;margin:0}
+.why em{color:var(--ink);font-style:italic}
+
+details.code{border:1px solid var(--line);border-radius:3px;overflow:hidden}
+details.code>summary{cursor:pointer;padding:10px 14px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--ink-2);background:var(--sunk);list-style:none;user-select:none}
+details.code>summary::-webkit-details-marker{display:none}
+details.code>summary::before{content:"▸ ";color:var(--ink-3)}
+details.code[open]>summary::before{content:"▾ "}
+details.code>summary:hover{color:var(--ink)}
+pre{margin:0;padding:15px 16px;overflow-x:auto;background:var(--surface);border-top:1px solid var(--line)}
+code{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.62;color:var(--ink-2);white-space:pre}
+.cm{color:var(--ink-3);font-style:italic}
+.kw{color:var(--relevance)}
+
+/* ---------- ranking lab ---------- */
+.lab{border:1px solid var(--line);border-radius:4px;background:var(--surface);box-shadow:0 1px 2px var(--shadow);overflow:hidden}
+.controls{display:flex;flex-wrap:wrap;gap:22px;padding:18px 20px;border-bottom:1px solid var(--line);background:var(--sunk);align-items:flex-end}
+.ctl{display:flex;flex-direction:column;gap:7px}
+.ctl>.eyebrow{margin:0}
+.seg{display:flex;border:1px solid var(--line-2);border-radius:3px;overflow:hidden}
+.seg button{
+  appearance:none;border:none;background:transparent;font:inherit;font-size:13px;
+  padding:6px 13px;cursor:pointer;color:var(--ink-2);border-right:1px solid var(--line-2);
+  font-family:ui-monospace,Menlo,monospace;transition:background .12s,color .12s;
+}
+.seg button:last-child{border-right:none}
+.seg button:hover{background:var(--surface)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
+.seg button:focus-visible{outline:2px solid var(--relevance);outline-offset:-2px}
+
+.slider{display:flex;align-items:center;gap:12px}
+input[type=range]{width:190px;accent-color:var(--authority)}
+input[type=range]:focus-visible{outline:2px solid var(--relevance);outline-offset:3px}
+.wval{font-family:ui-monospace,Menlo,monospace;font-size:13px;min-width:70px;color:var(--ink)}
+
+.legend{display:flex;gap:16px;padding:11px 20px;border-bottom:1px solid var(--line);font-size:12px;color:var(--ink-2);flex-wrap:wrap;align-items:center}
+.sw{display:inline-flex;align-items:center;gap:6px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.sw i{width:11px;height:11px;border-radius:2px;display:inline-block}
+.sw.rel i{background:var(--relevance)}
+.sw.aut i{background:var(--authority)}
+.qmeta{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--ink-3)}
+
+.rows{position:relative;padding:10px 0;margin:0}
+.row{
+  position:absolute;left:0;right:0;height:74px;padding:0 20px;
+  display:grid;grid-template-columns:26px 1fr 250px;gap:14px;align-items:center;
+  transition:transform .45s cubic-bezier(.4,0,.15,1);
+}
+.row .rank{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--ink-3);text-align:right;font-variant-numeric:tabular-nums}
+.row .doc{min-width:0}
+.row .path{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .snip{font-size:12.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px;font-family:"Iowan Old Style",Palatino,Georgia,serif}
+.row .snip mark{background:var(--relevance-soft);color:var(--ink);padding:0 2px;border-radius:2px}
+.row .meter{display:flex;flex-direction:column;gap:5px}
+.bar{height:9px;background:var(--sunk);border-radius:2px;overflow:hidden;display:flex;border:1px solid var(--line)}
+.bar .rel{background:var(--relevance);transition:width .45s cubic-bezier(.4,0,.15,1)}
+.bar .aut{background:var(--authority);transition:width .45s cubic-bezier(.4,0,.15,1)}
+.figs{display:flex;gap:11px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.figs b{color:var(--ink-2);font-weight:600}
+
+.note{margin:0;padding:13px 20px;border-top:1px solid var(--line);background:var(--sunk);font-size:14px;color:var(--ink-2);font-family:"Iowan Old Style",Palatino,Georgia,serif;line-height:1.55}
+.note b{color:var(--warn);font-weight:600;font-family:ui-sans-serif,-apple-system,system-ui,sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
+.note.hidden{display:none}
+
+/* ---------- ideas ---------- */
+.ideas{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.idea{background:var(--surface);padding:19px 20px}
+.idea h4{margin:9px 0 7px;font-size:16px;letter-spacing:-.015em;font-weight:640}
+.idea p{margin:0;font-size:14.5px;line-height:1.55;color:var(--ink-2);font-family:"Iowan Old Style",Palatino,Georgia,serif}
+.idea .tag{font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--relevance)}
+
+/* ---------- quiz ---------- */
+.quiz{display:grid;gap:9px}
+.q{border:1px solid var(--line);border-radius:3px;background:var(--surface);overflow:hidden}
+.q>summary{cursor:pointer;padding:15px 18px;font-size:16px;font-family:"Iowan Old Style",Palatino,Georgia,serif;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start}
+.q>summary::-webkit-details-marker{display:none}
+.q>summary .qn{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--ink-3);padding-top:4px;flex:0 0 auto}
+.q>summary:hover{background:var(--sunk)}
+.q .a{padding:0 18px 17px 47px;font-size:15px;line-height:1.6;color:var(--ink-2);font-family:"Iowan Old Style",Palatino,Georgia,serif;border-top:1px solid var(--line);padding-top:14px}
+.q .a code{font-size:12.5px;color:var(--relevance);white-space:normal}
+
+footer{margin-top:60px;padding-top:22px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+footer .mono{font-size:12px}
+
+@media (max-width:720px){
+  .io{grid-template-columns:1fr;gap:11px}
+  .io .arrow{display:none}
+  .row{grid-template-columns:22px 1fr;height:96px;row-gap:8px}
+  .row .meter{grid-column:1 / -1}
+  .rail{gap:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Zoogle — a search engine, from nothing</div>
+  <h1>Nine files turn 40 web pages<br><span class="dim">into a ranked answer.</span></h1>
+  <p class="prose lede">You already wrote all of it. This page is the map — click a stage to see what it does, what goes in, what comes out. <strong>Nothing here is illustrative:</strong> every number is read live from your own <span class="mono">index.json</span>.</p>
+
+  <div class="stats">
+    <div class="stat"><b>40</b><span>documents</span></div>
+    <div class="stat"><b>1,544</b><span>unique terms</span></div>
+    <div class="stat"><b>208</b><span>avg tokens/doc</span></div>
+    <div class="stat"><b>9</b><span>python modules</span></div>
+    <div class="stat"><b>~2 ms</b><span>per query</span></div>
+  </div>
+</header>
+
+<section>
+  <h2>The pipeline</h2>
+  <p class="sec-note">The split down the middle is the whole architecture: everything slow happens once, before anyone is waiting. Click any stage.</p>
+
+  <div class="rail" role="tablist" aria-label="Pipeline stages">
+    <div class="band">
+      <div class="band-hd"><span class="eyebrow">Built once · offline</span><span class="cost">minutes</span></div>
+      <div class="chips" id="band-off"></div>
+    </div>
+    <div class="hinge">
+      <div class="bar"></div>
+      <div class="lbl">index.json · 151 KB</div>
+    </div>
+    <div class="band">
+      <div class="band-hd"><span class="eyebrow">Per query · online</span><span class="cost">milliseconds</span></div>
+      <div class="chips" id="band-on"></div>
+    </div>
+  </div>
+
+  <div class="detail" id="detail"></div>
+</section>
+
+<section>
+  <h2>The ranking lab</h2>
+  <p class="sec-note">Real scores from your index. Change the scorer or drag the authority weight and watch the order actually move.</p>
+
+  <div class="lab">
+    <div class="controls">
+      <div class="ctl">
+        <span class="eyebrow">Query</span>
+        <div class="seg" id="seg-q"></div>
+      </div>
+      <div class="ctl">
+        <span class="eyebrow">Scorer</span>
+        <div class="seg" id="seg-m">
+          <button type="button" data-m="bm25" aria-pressed="true">bm25</button>
+          <button type="button" data-m="tfidf" aria-pressed="false">tfidf</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="eyebrow">Authority weight</span>
+        <div class="slider">
+          <input type="range" id="w" min="0" max="1" step="0.05" value="0.2" aria-label="Authority weight">
+          <span class="wval mono" id="wval">0.20</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="sw rel"><i></i>relevance — what the page says</span>
+      <span class="sw aut"><i></i>authority — who links to it</span>
+      <span class="qmeta" id="qmeta"></span>
+    </div>
+
+    <div class="rows" id="rows"></div>
+    <p class="note hidden" id="note"></p>
+  </div>
+</section>
+
+<section>
+  <h2>Five ideas worth keeping</h2>
+  <p class="sec-note">If you remember nothing else from the codebase, remember these.</p>
+  <div class="ideas">
+    <div class="idea">
+      <span class="tag">symmetry</span>
+      <h4>One tokenizer, both sides</h4>
+      <p>Pages and queries run through the <em>same</em> <span class="mono">tokenize()</span>. Matching only works because "Python!" and "python" collapse to the same string. Two tokenizers would be two bugs.</p>
+    </div>
+    <div class="idea">
+      <span class="tag">the math does it for you</span>
+      <h4>No stopword list</h4>
+      <p>IDF is <span class="mono">log(N/df)</span>. A word in all 40 docs scores <span class="mono">log(1) = 0</span> and contributes nothing. "the" silences itself — you never wrote a list.</p>
+    </div>
+    <div class="idea">
+      <span class="tag">saturation</span>
+      <h4>The 20th mention is worthless</h4>
+      <p>BM25 caps how much repetition helps and only <em>partly</em> divides by length. That's the fix for the 53-token stub outranking the real Einstein page.</p>
+    </div>
+    <div class="idea">
+      <span class="tag">two signals</span>
+      <h4>Authority is a tiebreaker</h4>
+      <p>PageRank doesn't know what you typed. Weight it past ~0.4 and the homepage wins every search — try it in the lab above.</p>
+    </div>
+    <div class="idea">
+      <span class="tag">asymmetry</span>
+      <h4>Slow once, fast forever</h4>
+      <p>Crawl, parse, index, PageRank: minutes, at startup. A request only tokenizes, looks up postings, and scores a handful of candidates.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Check yourself</h2>
+  <p class="sec-note">Answer before you open it. Recall beats re-reading — this is the part that makes it stick.</p>
+  <div class="quiz" id="quiz"></div>
+</section>
+
+<footer>
+  <span>Built from the source in <span class="mono">GoogleClone/</span> — every figure read from index.json</span>
+  <span class="mono">bm25: k1=1.5 · b=0.75 · damping=0.85</span>
+</footer>
+
+</div>
+
+<script>
+const DATA = {"einstein":{"tokens":["einstein"],"candidates":16,"df":16,"maxRel":{"bm25":1.719260391321,"tfidf":0.017288504375},"maxAuth":0.207020247328,"rows":[{"id":0,"url":"https://quotes.toscrape.com/author/Albert-Einstein","length":650,"tf":12,"bm25":1.719260391321,"tfidf":0.016916136588,"auth":0.024175772009,"snippet":[{"text":"\u2026 idea of using the newly discovered nuclear fission as a weapon. Later, with Bertrand Russell, ","match":false},{"text":"Einstein","match":true},{"text":" signed the Russell\u2013","match":false},{"text":"Einstein","match":true},{"text":" Manifesto, which highlighted the danger of nuclear weapons. ","match":false},{"text":"Einstein","match":true},{"text":" was \u2026","match":false}]},{"id":8,"url":"https://quotes.toscrape.com/","length":291,"tf":3,"bm25":1.380410335064,"tfidf":0.009446296205,"auth":0.207020247328,"snippet":[{"text":"\u2026 a process of our thinking. It cannot be changed without changing our thinking.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: change deep-thoughts thinking world \u201cIt is our choices, Harry, that show \u2026","match":false}]},{"id":36,"url":"https://quotes.toscrape.com/tag/success/page/1/","length":53,"tf":1,"bm25":1.369970895481,"tfidf":0.017288504375,"auth":0.010491407965,"snippet":[{"text":"\u2026 not to become a man of success. Rather become a man of value.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: adulthood success value Top Ten tags love inspirational life humor books reading \u2026","match":false}]},{"id":38,"url":"https://quotes.toscrape.com/tag/value/page/1/","length":53,"tf":1,"bm25":1.369970895481,"tfidf":0.017288504375,"auth":0.010491407965,"snippet":[{"text":"\u2026 not to become a man of success. Rather become a man of value.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: adulthood success value Top Ten tags love inspirational life humor books reading \u2026","match":false}]},{"id":12,"url":"https://quotes.toscrape.com/tag/adulthood/page/1/","length":53,"tf":1,"bm25":1.369970895481,"tfidf":0.017288504375,"auth":0.010491407965,"snippet":[{"text":"\u2026 not to become a man of success. Rather become a man of value.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: adulthood success value Top Ten tags love inspirational life humor books reading \u2026","match":false}]},{"id":39,"url":"https://quotes.toscrape.com/tag/world/page/1/","length":62,"tf":1,"bm25":1.331051609022,"tfidf":0.014778882772,"auth":0.011509704805,"snippet":[{"text":"\u2026 a process of our thinking. It cannot be changed without changing our thinking.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: change deep-thoughts thinking world Top Ten tags love inspirational life humor \u2026","match":false}]},{"id":16,"url":"https://quotes.toscrape.com/tag/change/page/1/","length":62,"tf":1,"bm25":1.331051609022,"tfidf":0.014778882772,"auth":0.011509704805,"snippet":[{"text":"\u2026 a process of our thinking. It cannot be changed without changing our thinking.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: change deep-thoughts thinking world Top Ten tags love inspirational life humor \u2026","match":false}]},{"id":19,"url":"https://quotes.toscrape.com/tag/deep-thoughts/page/1/","length":63,"tf":1,"bm25":1.326863314576,"tfidf":0.014544297331,"auth":0.011509704805,"snippet":[{"text":"\u2026 a process of our thinking. It cannot be changed without changing our thinking.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: change deep-thoughts thinking world Top Ten tags love inspirational life humor \u2026","match":false}]},{"id":27,"url":"https://quotes.toscrape.com/tag/live/page/1/","length":67,"tf":1,"bm25":1.310370438738,"tfidf":0.013675981073,"auth":0.013715129341,"snippet":[{"text":"\u2026 nothing is a miracle. The other is as though everything is a miracle.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: inspirational life live miracle miracles Top Ten tags love inspirational life humor \u2026","match":false}]},{"id":29,"url":"https://quotes.toscrape.com/tag/miracle/page/1/","length":67,"tf":1,"bm25":1.310370438738,"tfidf":0.013675981073,"auth":0.013715129341,"snippet":[{"text":"\u2026 nothing is a miracle. The other is as though everything is a miracle.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: inspirational life live miracle miracles Top Ten tags love inspirational life humor \u2026","match":false}]},{"id":26,"url":"https://quotes.toscrape.com/tag/life/page/1/","length":522,"tf":2,"bm25":0.876571582582,"tfidf":0.003510692459,"auth":0.029137474926,"snippet":[{"text":"\u2026 nothing is a miracle. The other is as though everything is a miracle.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: inspirational life live miracle miracles \u201cIt is better to be hated for \u2026","match":false}]},{"id":25,"url":"https://quotes.toscrape.com/tag/inspirational/page/1/","length":517,"tf":1,"bm25":0.546358291581,"tfidf":0.001772322499,"auth":0.032868874629,"snippet":[{"text":"\u2026 nothing is a miracle. The other is as though everything is a miracle.\u201d by Albert ","match":false},{"text":"Einstein","match":true},{"text":" (about) Tags: inspirational life live miracle miracles \u201cImperfection is beauty, madness is genius and \u2026","match":false}]}]},"love":{"tokens":["love"],"candidates":31,"df":31,"maxRel":{"bm25":0.556858053556,"tfidf":0.008891590103},"maxAuth":0.207020247328,"rows":[{"id":28,"url":"https://quotes.toscrape.com/tag/love/page/1/","length":712,"tf":23,"bm25":0.556858053556,"tfidf":0.00823387885,"auth":0.021952877447,"snippet":[{"text":"\u2026 ","match":false},{"text":"love","match":true},{"text":" \u201c","match":false},{"text":"Love","match":true},{"text":" does not begin and end the way we seem to think it does. ","match":false},{"text":"Love","match":true},{"text":" is a battle, ","match":false},{"text":"love","match":true},{"text":" is a war; ","match":false},{"text":"love","match":true},{"text":" is a growing up.\u201d by James \u2026","match":false}]},{"id":23,"url":"https://quotes.toscrape.com/tag/friendship/","length":172,"tf":6,"bm25":0.541377023714,"tfidf":0.008891590103,"auth":0.051753943086,"snippet":[{"text":"\u2026 that makes unhappy marriages.\u201d by Friedrich Nietzsche (about) Tags: friendship lack-of-friendship lack-of-","match":false},{"text":"love","match":true},{"text":" ","match":false},{"text":"love","match":true},{"text":" marriage unhappy-marriage \u201cGood friends, good books, and a sleepy conscience: this is \u2026","match":false}]},{"id":33,"url":"https://quotes.toscrape.com/tag/paraphrased/page/1/","length":83,"tf":2,"bm25":0.466869084076,"tfidf":0.006141981919,"auth":0.011998890661,"snippet":[{"text":"\u2026 all of us can do great things. But we can do small things with great ","match":false},{"text":"love","match":true},{"text":".\u201d by Mother Teresa (about) Tags: misattributed-to-mother-teresa paraphrased Top Ten tags ","match":false},{"text":"love","match":true},{"text":" \u2026","match":false}]},{"id":10,"url":"https://quotes.toscrape.com/page/2/","length":646,"tf":9,"bm25":0.46113351343,"tfidf":0.003551130413,"auth":0.008261985314,"snippet":[{"text":"\u2026 not death, it's indifference.\u201d by Elie Wiesel (about) Tags: activism apathy hate indifference inspirational ","match":false},{"text":"love","match":true},{"text":" opposite philosophy \u201cIt is not a lack of ","match":false},{"text":"love","match":true},{"text":", but a lack of friendship \u2026","match":false}]},{"id":32,"url":"https://quotes.toscrape.com/tag/obvious/page/1/","length":48,"tf":1,"bm25":0.403275201049,"tfidf":0.005310255201,"auth":0.01040103691,"snippet":[{"text":"\u2026 like, you know, night.\u201d by Steve Martin (about) Tags: humor obvious simile Top Ten tags ","match":false},{"text":"love","match":true},{"text":" inspirational life humor books reading friendship friends truth simile Quotes by: GoodReads.com Made \u2026","match":false}]},{"id":36,"url":"https://quotes.toscrape.com/tag/success/page/1/","length":53,"tf":1,"bm25":0.396724330976,"tfidf":0.004809287729,"auth":0.010491407965,"snippet":[{"text":"\u2026 a man of value.\u201d by Albert Einstein (about) Tags: adulthood success value Top Ten tags ","match":false},{"text":"love","match":true},{"text":" inspirational life humor books reading friendship friends truth simile Quotes by: GoodReads.com Made \u2026","match":false}]},{"id":38,"url":"https://quotes.toscrape.com/tag/value/page/1/","length":53,"tf":1,"bm25":0.396724330976,"tfidf":0.004809287729,"auth":0.010491407965,"snippet":[{"text":"\u2026 a man of value.\u201d by Albert Einstein (about) Tags: adulthood success value Top Ten tags ","match":false},{"text":"love","match":true},{"text":" inspirational life humor books reading friendship friends truth simile Quotes by: GoodReads.com Made \u2026","match":false}]},{"id":12,"url":"https://quotes.toscrape.com/tag/adulthood/page/1/","length":53,"tf":1,"bm25":0.396724330976,"tfidf":0.004809287729,"auth":0.010491407965,"snippet":[{"text":"\u2026 a man of value.\u201d by Albert Einstein (about) Tags: adulthood success value Top Ten tags ","match":false},{"text":"love","match":true},{"text":" inspirational life humor books reading friendship friends truth simile Quotes by: GoodReads.com Made \u2026","match":false}]},{"id":24,"url":"https://quotes.toscrape.com/tag/humor/page/1/","length":299,"tf":3,"bm25":0.396288020401,"tfidf":0.002557447321,"auth":0.01695046104,"snippet":[{"text":"\u2026 misinformed beholder a black eye.\u201d by Jim Henson (about) Tags: humor \u201cAll you need is ","match":false},{"text":"love","match":true},{"text":". But a little chocolate now and then doesn't hurt.\u201d by Charles M. Schulz \u2026","match":false}]},{"id":11,"url":"https://quotes.toscrape.com/tag/abilities/page/1/","length":55,"tf":1,"bm25":0.394163189764,"tfidf":0.004634404539,"auth":0.009403884747,"snippet":[{"text":"\u2026 more than our abilities.\u201d by J.K. Rowling (about) Tags: abilities choices Top Ten tags ","match":false},{"text":"love","match":true},{"text":" inspirational life humor books reading friendship friends truth simile Quotes by: GoodReads.com Made \u2026","match":false}]},{"id":8,"url":"https://quotes.toscrape.com/","length":291,"tf":2,"bm25":0.334046043831,"tfidf":0.001751836767,"auth":0.207020247328,"snippet":[{"text":"\u2026 than to be loved for what you are not.\u201d by Andr\u00e9 Gide (about) Tags: life ","match":false},{"text":"love","match":true},{"text":" \u201cI have not failed. I've just found 10,000 ways that won't \u2026","match":false}]},{"id":22,"url":"https://quotes.toscrape.com/tag/friends/","length":327,"tf":2,"bm25":0.318369548134,"tfidf":0.001558974004,"auth":0.05276755653,"snippet":[{"text":"\u2026 s so much to smile about.\u201d by Marilyn Monroe (about) Tags: friends heartbreak inspirational life ","match":false},{"text":"love","match":true},{"text":" sisters \u201cIt takes a great deal of bravery to stand up to our enemies \u2026","match":false}]}]},"comedy":{"tokens":["comedy"],"candidates":2,"df":2,"maxRel":{"bm25":5.648931689616,"tfidf":0.099196432899},"maxAuth":0.029137474926,"rows":[{"id":6,"url":"https://quotes.toscrape.com/author/Steve-Martin","length":151,"tf":5,"bm25":5.648931689616,"tfidf":0.099196432899,"auth":0.011506146505,"snippet":[{"text":"\u2026 early influences were working at Disneyland and Knott's Berry Farm and working magic and ","match":false},{"text":"comedy","match":true},{"text":" acts at these and other smaller venues in the area. His ascent to fame \u2026","match":false}]},{"id":26,"url":"https://quotes.toscrape.com/tag/life/page/1/","length":522,"tf":1,"bm25":1.668271944555,"tfidf":0.005738950716,"auth":0.029137474926,"snippet":[{"text":"\u2026 There is no one alive who is Youer than You.\u201d by Dr. Seuss (about) Tags: ","match":false},{"text":"comedy","match":true},{"text":" life yourself \u201cLife is like riding a bicycle. To keep your balance, you must \u2026","match":false}]}]}};
+
+/* ============ stages ============ */
+const STAGES = [
+{
+  n:"01", side:"off", name:"Crawl", file:"crawler.py", lines:"370 lines",
+  one:"Fetch real pages over HTTP — politely — and save them to disk.",
+  inK:"Input", inV:"seed URL: https://quotes.toscrape.com/",
+  outK:"Output", outV:"41 .html files in crawled/ + manifest.json mapping filename → real URL",
+  why:"This is the only module that touches the network, and that changes everything about how it's written. Every other file is a pure function over data you already have; here every step can fail, hang, or belong to someone who'd rather you didn't. So most of the code is <em>restraint</em>: robots.txt checked once per host, a one-second delay between hits to the same host, an honest User-Agent, and hard caps on pages and page size. The traversal itself is just breadth-first — a queue of URLs, pop one, fetch it, push its links on the back.",
+  code:`USER_AGENT = "ZoogleBot/0.1 (educational search engine project)"
+CRAWL_DELAY = 1.0          <span class="cm"># seconds between requests to the same host</span>
+REQUEST_TIMEOUT = 10       <span class="cm"># seconds before we give up on a response</span>
+MAX_PAGE_BYTES = 2_000_000 <span class="cm"># skip anything larger; it isn't an article</span>
+
+<span class="cm"># BFS: stays near the seed pages. Depth-first wanders off down one
+# branch and never comes back.</span>
+frontier = deque([seed])
+<span class="kw">while</span> frontier <span class="kw">and</span> len(saved) &lt; max_pages:
+    url = frontier.popleft()
+    <span class="kw">if</span> <span class="kw">not</span> robots.allowed(url):   <span class="cm"># the whole social contract</span>
+        <span class="kw">continue</span>
+    ...`
+},
+{
+  n:"02", side:"off", name:"Parse", file:"parser.py", lines:"124 lines",
+  one:"Turn messy HTML into a uniform document: title, text, tokens, links.",
+  inK:"Input", inV:"one .html file",
+  outK:"Output", outV:'{url, title, text, tokens:["quotes","to","scrape","albert","einstein",…], links:["/","/login",…]}',
+  why:"Two functions here matter far more than the HTML wrangling. <em>tokenize()</em> lowercases and keeps only runs of letters and digits — and the exact same function runs on queries later, which is the only reason matching works at all. <em>normalize_url()</em> is the same idea for URLs: strip the fragment, lowercase the host, drop <span class=\"mono\">utm_</span> tracking params, so one page has exactly one name. If the crawler and the parser disagreed on spelling, PageRank would look up links and find nothing.",
+  code:`TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+<span class="kw">def</span> tokenize(text: str) -&gt; list[str]:
+    <span class="cm">"""The exact same function must run on documents AND queries,
+    so that "Python!" in a page and "python" in a query end up
+    identical. That symmetry is the whole reason matching works."""</span>
+    <span class="kw">return</span> TOKEN_RE.findall(text.lower())
+
+<span class="cm"># Script/style tags are code, not content — drop them so they
+# never leak into the text or the tokens.</span>
+<span class="kw">for</span> tag <span class="kw">in</span> soup(["script", "style"]):
+    tag.decompose()
+text = soup.get_text(separator=" ", strip=True)`
+},
+{
+  n:"03", side:"off", name:"Index", file:"indexer.py", lines:"96 lines",
+  one:"Invert the corpus: from “which words are in this page?” to “which pages have this word?”",
+  inK:"Input", inV:"40 parsed documents",
+  outK:"Output", outV:'index["einstein"] → {0:12, 8:3, 12:1, 16:1, …}   ·   1,544 terms total',
+  why:"This is the single data structure the whole engine stands on. Reading 40 pages to answer one query would work; reading 40 million wouldn't. So you flip it: a dict from term to <em>postings</em> — which doc IDs contain it and how many times. Alongside it sits the doc store, keyed by the same integer IDs, holding what you'll need to describe a result later: url, title, raw text, length, links. Both get dumped to <span class=\"mono\">index.json</span> so the slow build never happens during a request.",
+  code:`<span class="kw">for</span> doc_id, path <span class="kw">in</span> enumerate(files):
+    doc = parse_file(path, url=manifest.get(path.name))
+
+    documents[doc_id] = {
+        "url": doc["url"], "title": doc["title"], "text": doc["text"],
+        "length": len(doc["tokens"]),  <span class="cm"># used to normalize TF later</span>
+        "links": doc["links"],
+    }
+
+    <span class="cm"># Count each term in this doc, then fold into the inverted index.</span>
+    <span class="kw">for</span> term, freq <span class="kw">in</span> Counter(doc["tokens"]).items():
+        index.setdefault(term, {})[doc_id] = freq`
+},
+{
+  n:"04", side:"off", name:"PageRank", file:"pagerank.py", lines:"135 lines",
+  one:"Score every page's authority from the link graph alone — never reading a word of text.",
+  inK:"Input", inV:"link graph: 0 → [8, 9] · 1 → [8, 9] · … (39 pages link to doc 8)",
+  outK:"Output", outV:"doc 8: 0.2070  ·  doc 9: 0.1143  ·  doc 22: 0.0528  ·  (sums to 1.0)",
+  why:"A page is important if important pages link to it. That's circular, and the circularity is the point — you resolve it by iterating: start everyone equal, let each page hand its score to what it links to, repeat until the numbers stop moving. Two details make it actually work. <em>Damping (0.85)</em> models a surfer who follows a link 85% of the time and teleports otherwise, so score can't get trapped in a cycle. <em>Dangling nodes</em> — pages linking nowhere — would leak their score out of the system, so it gets redistributed evenly instead.",
+  code:`scores = {doc_id: 1.0 / num_docs <span class="kw">for</span> doc_id <span class="kw">in</span> graph}
+
+<span class="kw">for</span> _ <span class="kw">in</span> range(max_iterations):
+    dangling = sum(scores[d] <span class="kw">for</span> d, t <span class="kw">in</span> graph.items() <span class="kw">if</span> <span class="kw">not</span> t)
+
+    <span class="cm"># Everyone starts the round with the random-jump share.</span>
+    base = (1.0 - damping)/num_docs + damping*dangling/num_docs
+    next_scores = {doc_id: base <span class="kw">for</span> doc_id <span class="kw">in</span> graph}
+
+    <span class="cm"># Then each page splits its score among its targets. Linking to
+    # 20 pages is worth less per link than linking to 2.</span>
+    <span class="kw">for</span> doc_id, targets <span class="kw">in</span> graph.items():
+        share = damping * scores[doc_id] / len(targets)
+        <span class="kw">for</span> t <span class="kw">in</span> targets: next_scores[t] += share
+
+    <span class="kw">if</span> delta &lt; tolerance: <span class="kw">break</span>   <span class="cm"># converged</span>`
+},
+{
+  n:"05", side:"on", name:"Query", file:"query.py", lines:"17 lines",
+  one:"Normalize what the user typed — using the parser's tokenizer, not a new one.",
+  inK:"Input", inV:'"Best PYTHON web-development!"',
+  outK:"Output", outV:'["best", "python", "web", "development"]',
+  why:"The shortest file in the project, and deliberately so. It imports <span class=\"mono\">tokenize</span> from the parser and calls it. The temptation is always to write a second, query-specific tokenizer — and the moment you do, some query stops matching a document it should have matched, and you spend an afternoon finding out why. Seventeen lines that exist to make a promise: <em>documents and queries are normalized identically.</em>",
+  code:`<span class="kw">from</span> parser <span class="kw">import</span> tokenize
+
+<span class="kw">def</span> process_query(raw_query: str) -&gt; list[str]:
+    <span class="cm">"""Normalize a user's query into a list of tokens."""</span>
+    <span class="kw">return</span> tokenize(raw_query)`
+},
+{
+  n:"06", side:"on", name:"Retrieve", file:"retrieval.py", lines:"35 lines",
+  one:"Pull every document containing any query term. Cheap, wide, unordered.",
+  inK:"Input", inV:'["einstein"]',
+  outK:"Output", outV:"{0, 8, 10, 12, 16, 19, 27, 29, 30, 35, 36, 38, 39, …} — 16 candidates of 40",
+  why:"A union, not an intersection: a document is a candidate if it has <em>any</em> query term. That's a deliberate split of labor — retrieval's job is to be fast and generous, ranking's job is to be picky. Ranking is allowed to be expensive precisely because it only ever sees these 16 candidates instead of the whole corpus. Requiring all terms (AND) would be stricter, but a two-word query would start returning nothing.",
+  code:`<span class="kw">def</span> retrieve(query_tokens: list[str], index: dict) -&gt; set[int]:
+    <span class="cm">"""Doc IDs containing at least one query term."""</span>
+    candidates: set[int] = set()
+    <span class="kw">for</span> term <span class="kw">in</span> query_tokens:
+        postings = index.get(term, {})   <span class="cm"># {} if not in corpus</span>
+        candidates.update(postings.keys())
+    <span class="kw">return</span> candidates`
+},
+{
+  n:"07", side:"on", name:"Rank", file:"ranking.py", lines:"307 lines",
+  one:"Score the candidates by relevance, then blend in authority. The heart of the engine.",
+  inK:"Input", inV:"16 candidates + the index + PageRank scores",
+  outK:"Output", outV:"[(0, 0.8423), (8, 0.8234), (12, 0.6476), …] — best first",
+  why:"Two intuitions, combined two different ways. <em>TF</em> asks how much a page is about a term; <em>IDF</em> asks how much the term narrows things down. Plain TF-IDF divides by the document's full length, which punishes long pages brutally — on your real crawl, a 53-token tag page mentioning Einstein once beat the 650-token Einstein biography mentioning him twelve times. BM25 fixes both halves: repetition <em>saturates</em>, and length normalization is only partial (b=0.75) and measured against the corpus average. Then relevance and authority are each rescaled to 0–1 and mixed 80/20 — because PageRank has no idea what you searched for.",
+  code:`<span class="cm"># score = Σ idf(t) · ───── f · (k1 + 1) ─────
+#                   f + k1 · (1 - b + b·len/avgdl)</span>
+<span class="kw">for</span> term <span class="kw">in</span> query_tokens:
+    count = index.get(term, {}).get(doc_id, 0)
+    normalized = 1 - b + b * (length / avgdl)
+    score += bm25_idf(term, index, num_docs) * (
+        count * (k1 + 1) / (count + k1 * normalized)
+    )
+
+<span class="cm"># Blend, AFTER putting both on the same 0..1 scale. Push the weight
+# too high and index.html wins every search regardless of the query.</span>
+AUTHORITY_WEIGHT = 0.2
+final = (1 - w) * relevance[d] + w * authority[d]`
+},
+{
+  n:"08", side:"on", name:"Snippet", file:"snippets.py", lines:"134 lines",
+  one:"Quote the densest patch of query terms, so the user can decide whether to click.",
+  inK:"Input", inV:'doc 0 text (650 tokens) + ["einstein"]',
+  outK:"Output", outV:'[{text:"… Later, with Bertrand Russell, ", match:false}, {text:"Einstein", match:true}, …]',
+  why:"Not “summarize this document” — <em>find the best 30-token window and quote it</em>. Windows are scored by how many <em>distinct</em> query terms they cover (×100) before raw count, so a window with “python” and “web” beats one with “python” five times. Two details worth noticing: it slices the <em>original</em> text, not the tokens, so you get real punctuation and capitalization back — that's why the doc store kept <span class=\"mono\">text</span> alongside <span class=\"mono\">tokens</span>. And <em>highlight()</em> returns segments, not HTML with &lt;b&gt; tags, so untrusted crawled text never gets injected into React as markup.",
+  code:`<span class="cm"># Only windows CENTERED on a hit are worth checking.</span>
+<span class="kw">for</span> hit <span class="kw">in</span> hits:
+    candidate = max(0, hit - width // 2)
+    window = tokens[candidate : candidate + width]
+
+    <span class="cm"># Distinct terms dominate raw count: covering 'python' AND
+    # 'web' beats hitting 'python' five times.</span>
+    distinct = len(wanted.intersection(window))
+    total = sum(1 <span class="kw">for</span> t <span class="kw">in</span> window <span class="kw">if</span> t <span class="kw">in</span> wanted)
+    score = distinct * 100 + total
+
+<span class="cm"># Slice the ORIGINAL text, not the tokens — real punctuation.</span>
+passage = text[matches[start].start() : matches[end-1].end()]`
+},
+{
+  n:"09", side:"on", name:"Serve", file:"server.py + frontend/", lines:"153 + 270 lines",
+  one:"Load everything once at boot; each request just tokenizes, looks up, and scores.",
+  inK:"Input", inV:"GET /api/search?q=einstein&limit=10&method=bm25",
+  outK:"Output", outV:"{query, tokens, count, results:[{id, url, title, score, snippet:[…]}]}",
+  why:"The thinnest file in the project, and that's the achievement — every interesting decision was already made underneath it. Its one real job is the <span class=\"mono\">lifespan</span> hook: load the index, compute PageRank, compute average document length, derive the example queries — all <em>once</em>, before any user is waiting. That asymmetry is why search answers in milliseconds. The React frontend is equally thin: <span class=\"mono\">api.js</span> wraps two endpoints, and <span class=\"mono\">App.jsx</span> renders the snippet segments, deciding for itself what a match looks like.",
+  code:`<span class="kw">async def</span> lifespan(app: FastAPI):
+    <span class="cm">"""Do the expensive work once, at boot, not per request."""</span>
+    data = load_index("index.json")
+    STATE["documents"], STATE["index"] = data["documents"], data["index"]
+
+    <span class="cm"># All query-INDEPENDENT — so none of it belongs in a handler.</span>
+    STATE["authority"]   = compute_pagerank(STATE["documents"])
+    STATE["avgdl"]       = average_length(STATE["documents"])
+    STATE["suggestions"] = suggest_queries(STATE["index"], ...)
+    <span class="kw">yield</span>
+
+<span class="cm"># A request now does almost nothing:</span>
+tokens  = process_query(q)
+ranked  = search(q, index, documents, authority=..., avgdl=...)`
+}
+];
+
+/* ============ pipeline rail ============ */
+const detail = document.getElementById('detail');
+let selected = 0;
+
+function chipEl(s, i){
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.type = 'button';
+  b.setAttribute('role','tab');
+  b.setAttribute('aria-selected', i === selected ? 'true' : 'false');
+  b.innerHTML = `<span class="n">${s.n}</span><span class="nm">${s.name}</span><span class="fl">${s.file.split(' ')[0]}</span>`;
+  b.addEventListener('click', () => select(i));
+  b.addEventListener('keydown', e => {
+    if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+      e.preventDefault();
+      const next = (i + (e.key === 'ArrowRight' ? 1 : STAGES.length - 1)) % STAGES.length;
+      select(next);
+      document.querySelectorAll('.chip')[next].focus();
+    }
+  });
+  return b;
+}
+
+function renderRail(){
+  const off = document.getElementById('band-off');
+  const on  = document.getElementById('band-on');
+  off.textContent = ''; on.textContent = '';
+  STAGES.forEach((s,i) => (s.side === 'off' ? off : on).appendChild(chipEl(s,i)));
+}
+
+function select(i){
+  selected = i;
+  document.querySelectorAll('.chip').forEach((c,j) =>
+    c.setAttribute('aria-selected', j === i ? 'true' : 'false'));
+  const s = STAGES[i];
+  detail.innerHTML = `
+    <div class="detail-hd">
+      <h3>${s.n} · ${s.name}</h3>
+      <div class="file">${s.file} — ${s.lines}</div>
+      <p class="one">${s.one}</p>
+    </div>
+    <div class="detail-bd">
+      <div class="io">
+        <div class="box"><div class="k">${s.inK}</div><div class="v">${s.inV}</div></div>
+        <div class="arrow">→</div>
+        <div class="box"><div class="k">${s.outK}</div><div class="v">${s.outV}</div></div>
+      </div>
+      <p class="why">${s.why}</p>
+      <details class="code"><summary>the code that does it — ${s.file.split(' ')[0]}</summary><pre><code>${s.code}</code></pre></details>
+    </div>`;
+}
+
+renderRail();
+select(0);
+
+/* ============ ranking lab ============ */
+const QUERIES = ['einstein','love','comedy'];
+let q = 'einstein', method = 'bm25', w = 0.2;
+
+const segQ   = document.getElementById('seg-q');
+const rowsEl = document.getElementById('rows');
+const noteEl = document.getElementById('note');
+const qmeta  = document.getElementById('qmeta');
+const wEl    = document.getElementById('w');
+const wvalEl = document.getElementById('wval');
+
+QUERIES.forEach(name => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = name;
+  b.setAttribute('aria-pressed', name === q ? 'true' : 'false');
+  b.addEventListener('click', () => {
+    q = name;
+    segQ.querySelectorAll('button').forEach(x =>
+      x.setAttribute('aria-pressed', x.textContent === name ? 'true' : 'false'));
+    build();
+  });
+  segQ.appendChild(b);
+});
+
+document.getElementById('seg-m').querySelectorAll('button').forEach(b => {
+  b.addEventListener('click', () => {
+    method = b.dataset.m;
+    document.getElementById('seg-m').querySelectorAll('button').forEach(x =>
+      x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    build();
+  });
+});
+
+wEl.addEventListener('input', () => {
+  w = parseFloat(wEl.value);
+  wvalEl.textContent = w.toFixed(2);
+  build();
+});
+
+const ROW_H = 74;
+let built = '';
+
+/* Mirrors ranking.combine(): normalize each signal across THIS query's
+   candidates, then mix. The maxima come from the FULL candidate set as
+   computed by ranking.py — not from the rows shown — so the bars match
+   what the real engine produces. */
+function scoreRows(){
+  const d = DATA[q];
+  const maxRel  = d.maxRel[method] || 1;
+  const maxAuth = d.maxAuth        || 1;
+  return d.rows.map(r => {
+    const rel  = (1 - w) * (r[method] / maxRel);
+    const aut  = w * (r.auth / maxAuth);
+    return {...r, rel, aut, final: rel + aut};
+  }).sort((a,b) => (b.final - a.final) || (a.id - b.id));
+}
+
+function path(url){
+  const p = url.replace('https://quotes.toscrape.com','');
+  return p === '/' || p === '' ? '/  (homepage)' : p;
+}
+
+function build(){
+  const scored = scoreRows();
+
+  // Build the DOM once per query, then only move rows on slider/scorer changes.
+  const key = q;
+  if(built !== key){
+    built = key;
+    rowsEl.textContent = '';
+    DATA[q].rows.forEach(r => {
+      const d = document.createElement('div');
+      d.className = 'row';
+      d.dataset.id = r.id;
+      const snip = r.snippet.map(s =>
+        s.match ? `<mark>${s.text}</mark>` : s.text).join('');
+      d.innerHTML = `
+        <div class="rank"></div>
+        <div class="doc">
+          <div class="path">${path(r.url)}</div>
+          <div class="snip">${snip}</div>
+        </div>
+        <div class="meter">
+          <div class="bar"><span class="rel"></span><span class="aut"></span></div>
+          <div class="figs">
+            <span>len <b>${r.length}</b></span>
+            <span>hits <b>${r.tf}</b></span>
+            <span>score <b class="fin"></b></span>
+          </div>
+        </div>`;
+      rowsEl.appendChild(d);
+    });
+    rowsEl.style.height = (DATA[q].rows.length * ROW_H + 20) + 'px';
+  }
+
+  scored.forEach((r, i) => {
+    const el = rowsEl.querySelector(`.row[data-id="${r.id}"]`);
+    el.style.transform = `translateY(${i * ROW_H}px)`;
+    el.querySelector('.rank').textContent = i + 1;
+    el.querySelector('.bar .rel').style.width = (r.rel * 100) + '%';
+    el.querySelector('.bar .aut').style.width = (r.aut * 100) + '%';
+    el.querySelector('.fin').textContent = r.final.toFixed(3);
+  });
+
+  const d = DATA[q];
+  qmeta.textContent = `${d.candidates} candidates · df=${d.df}/40 · showing ${d.rows.length}`;
+
+  // Notes key off what actually happened in the numbers above, not off
+  // hardcoded thresholds — so they can never disagree with the table.
+  const winner = scored[0];
+  let msg = '';
+  if(q === 'einstein' && method === 'tfidf' && winner.length < 100){
+    msg = '<b>this is the bug BM25 fixes</b>A 53-token tag page that mentions Einstein <em>once</em> is beating the 650-token biography that mentions him <em>twelve</em> times — 1/53 = 0.0189 edges out 12/650 = 0.0185. TF-IDF divides by full document length, so length is almost pure penalty. Switch to bm25 and watch the biography take #1.';
+  } else if(winner.id === 8){
+    msg = `<b>authority is outvoting the words</b>At w = ${w.toFixed(2)} the homepage holds #1 — not by being about your query, but by having 39 inbound links and a PageRank of 0.207, four times the next page. ` +
+      (w <= 0.2
+        ? 'Worth noticing that this happens at ranking.py\'s <em>shipped</em> default: in a close relevance race, 20% authority is already enough to flip the winner.'
+        : 'Slide back toward 0 to watch relevance take over again.');
+  } else if(q === 'comedy'){
+    msg = '<b>a rare term is a loud term</b>“comedy” appears in just 2 of 40 documents, so its IDF is large and the Steve Martin page scores 5.65 — three times anything a common word can produce. Rarity is most of what makes a match meaningful.';
+  } else if(q === 'love' && method === 'bm25' && winner.id === 28){
+    msg = '<b>saturation at work</b>The love tag page wins with 23 mentions in 712 tokens — but only just, at 0.557 against 0.541 for a page with 6 mentions in 172. Under BM25 those extra 17 mentions are worth almost nothing; the page earns its place by being long <em>and</em> dense, not by repetition alone.';
+  }
+  noteEl.innerHTML = msg;
+  noteEl.classList.toggle('hidden', !msg);
+}
+
+build();
+
+/* ============ quiz ============ */
+const QUIZ = [
+  ["Why does query.py import tokenize() from parser.py instead of defining its own?",
+   "Because documents and queries have to be normalized <em>identically</em> or matching silently breaks. If the parser strips punctuation and the query tokenizer doesn't, “Python!” in a page never matches “python” in a search. That shared function is the entire reason the index is lookup-able — and it's why query.py is only 17 lines."],
+  ["A page has 12 mentions of “einstein” in 650 tokens. A tag stub has 1 in 53. Why does TF-IDF rank the stub higher, and what does BM25 change?",
+   "TF-IDF computes count ÷ <em>full</em> length: 12/650 = 0.0185 versus 1/53 = 0.0189 — the stub wins by being short. BM25 changes two things: term counts <em>saturate</em> (the 12th mention adds almost nothing over the 11th, so 12 hits still beats 1 decisively), and length normalization is only partial — <span class=\"mono\">1 - b + b·(len/avgdl)</span> with b=0.75 — so long pages are discounted, not punished. Result: 1.719 vs 1.370."],
+  ["Why is AUTHORITY_WEIGHT set to 0.2 rather than 0.5?",
+   "Because PageRank doesn't know what you searched for. It's a fixed property of the link graph, identical for every query. Push the weight up and the most-linked page — the homepage, at 0.207 — wins every search regardless of what was typed: for “love” it takes #1 at w=0.35, for “comedy” at w=0.55. Authority is a tiebreaker <em>between</em> relevant pages, not a substitute for being relevant. The lab above shows how little headroom there really is — for “einstein”, 0.20 is <em>already</em> enough to put the homepage above the actual Einstein biography."],
+  ["Why does the engine work fine without a stopword list?",
+   "IDF is <span class=\"mono\">log(N / df)</span>. A term appearing in all 40 documents gives log(40/40) = log(1) = 0, so it contributes exactly nothing to the score. “the” appears in 27 of 40 and scores 0.393 — weak, and getting weaker the more common it gets. The math discovers which words are noise, so you never had to enumerate them."],
+  ["Why does highlight() return a list of {text, match} segments instead of HTML with &lt;b&gt; tags?",
+   "Two reasons, and the second one is the serious one. First, it keeps the decision about what a match <em>looks</em> like in the frontend where it belongs. Second: document text is untrusted the moment a real crawler starts fetching pages. Handing React a string of HTML to inject is an XSS hole; handing it data that React renders as text is not."],
+  ["Why are PageRank and average document length computed in server.py's lifespan hook instead of inside the search handler?",
+   "Because neither depends on the query. PageRank is a property of the link graph; avgdl is a property of the corpus. Computing them per request would walk the entire doc store on every search to get the same answer every time. Moving all query-independent work to startup is what makes the online path a tokenize, a dict lookup, and a few dozen multiplications."]
+];
+
+const quizEl = document.getElementById('quiz');
+QUIZ.forEach((pair, i) => {
+  const d = document.createElement('details');
+  d.className = 'q';
+  d.innerHTML = `<summary><span class="qn">Q${i+1}</span><span>${pair[0]}</span></summary><div class="a">${pair[1]}</div>`;
+  quizEl.appendChild(d);
+});
+</script>
+</body>
+</html>
